@@ -1,7 +1,7 @@
 #![allow(unused_variables)]
 use std::io::Write;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc, SecondsFormat, Local, TimeZone, Offset};
 use clap::Parser;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
@@ -40,13 +40,13 @@ fn parse_entry(entry: &str) -> Entry {
 fn list_last_entries(n: Option<i32>) {
     let file = std::fs::File::open(FILENAME).unwrap();
     let reader = std::io::BufReader::new(file);
-    let mut entries: Vec<Entry> = serde_json::Deserializer::from_reader(reader)
+    let entries: Vec<Entry> = serde_json::Deserializer::from_reader(reader)
         .into_iter()
         .map(|e| e.unwrap())
         .collect();
-    entries.reverse();
     for entry in entries.iter().take(n.unwrap_or(10) as usize) {
-        println!("{} {}", entry.date, entry.text);
+        let local = Local.from_utc_datetime(&entry.date.naive_utc());
+        println!("{} ---- {}", local.format("%a %Y-%m-%d %H:%M:%S"), entry.text);
     }
 }
 
