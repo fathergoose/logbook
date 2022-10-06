@@ -1,16 +1,25 @@
-#![allow(unused_variables)]
 use std::io::Write;
 
-use chrono::{DateTime, Utc, SecondsFormat, Local, TimeZone, Offset};
-use clap::Parser;
+use chrono::{DateTime, Local, TimeZone, Utc};
+use clap::{ColorChoice, Parser};
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 
 const FILENAME: &str = "/Users/al/.config/logbook/data.ndjson";
+const RESET: &str = "\x1b[0m";
+const BOLD: &str = "\x1b[1m";
+const UL: &str = "\x1b[4m";
+
+// TODO: Add support for text wrapping via `textwrap` crate
+// TODO: Potentially fixed-width columns via the `tabwriter` crate.
+// TODO: Split up the reading and writing halves of the program into separate modules.
+// TODO: Write tests - unit and integration.
+// TODO: Add support for a config file, env vars, and/or command-line args.
 
 #[derive(Parser, Debug)]
 #[command(author("Alexander Ilseman"), version("0.0.2"), about("A moment happens once; what did you do with it?"), long_about = None)]
 #[command(after_help = "Run without any arguments list last 10 entries.")]
+#[command(color = ColorChoice::Auto)]
 struct Cli {
     #[clap(help = "Entry text. Omit to show last 10 entries")]
     entry: Vec<String>,
@@ -44,9 +53,17 @@ fn list_last_entries(n: Option<i32>) {
         .into_iter()
         .map(|e| e.unwrap())
         .collect();
+    println!(
+        "{}{}DateTime{}                     {}{}Text{}",
+        BOLD, UL, RESET, BOLD, UL, RESET
+    );
     for entry in entries.iter().take(n.unwrap_or(10) as usize) {
         let local = Local.from_utc_datetime(&entry.date.naive_utc());
-        println!("{} ---- {}", local.format("%a %Y-%m-%d %H:%M:%S"), entry.text);
+        println!(
+            "{} ---- {}",
+            local.format("%a %Y-%m-%d %I:%M %p"),
+            entry.text
+        );
     }
 }
 
