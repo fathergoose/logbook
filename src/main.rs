@@ -1,21 +1,23 @@
-use std::{io::{Write, BufReader}, fs::File};
-
-use chrono::{DateTime, Local, TimeZone, Utc};
+use chrono::{DateTime, Local, Utc};
 use clap::{ColorChoice, Parser};
 use log::{debug, info};
 use rev_lines::RevLines;
 use serde::{Deserialize, Serialize};
+use std::{
+    fs::File,
+    io::{BufReader, Write},
+};
+use textwrap::{dedent, wrap_columns};
 
 const FILENAME: &str = "/Users/al/.config/logbook/data.ndjson";
 const RESET: &str = "\x1b[0m";
 const BOLD: &str = "\x1b[1m";
 const UL: &str = "\x1b[4m";
 
-// TODO: Add support for text wrapping via `textwrap` crate
-// TODO: Potentially fixed-width columns via the `tabwriter` crate.
 // TODO: Split up the reading and writing halves of the program into separate modules.
 // TODO: Write tests - unit and integration.
 // TODO: Add support for a config file, env vars, and/or command-line args.
+// TODO: Add support for something like psql's `\e` command open in EDITOR
 
 #[derive(Parser, Debug)]
 #[command(author("Alexander Ilseman"), version("0.1.1"), about("A moment happens once; what did you do with it?"), long_about = None)]
@@ -55,18 +57,27 @@ fn list_last_entries(n: Option<i32>) {
     // TODO: For queies, we'll need a different approach to gathering the data
     println!("{}Last {} entries:{}\n", BOLD, n, RESET);
     println!(
-        "{}{}DateTime{}                     {}{}Text{}",
+        "{}{}DateTime{}                 {}{}Text{}",
         BOLD, UL, RESET, BOLD, UL, RESET
     );
     for line in last_lines.iter().rev() {
         let entry = serde_json::from_str::<Entry>(&line).unwrap();
-        println!(
-            "{}{}{} {}",
-            BOLD,
-            entry.date.with_timezone(&Local).format("%Y-%m-%d %H:%M:%S"),
-            RESET,
-            entry.text,
-        );
+        let mut first_line = true;
+        for line in format_entry(&entry.text) {
+            if first_line {
+                println!("");
+                println!(
+                    "{}{}{}{}",
+                    BOLD,
+                    entry.date.with_timezone(&Local).format("%a %h-%d %_I:%M %p"),
+                    RESET,
+                    "\t  ".to_owned() + &dedent(&line)
+                );
+                first_line = false;
+            } else {
+                println!("{}", line);
+            }
+        }
     }
 }
 
@@ -82,6 +93,17 @@ fn write_entry(entry: &Entry) -> Result<(), Box<dyn std::error::Error>> {
         .open(FILENAME)?;
     file.write_all(entry_json.as_bytes())?;
     Ok(())
+}
+
+fn format_entry(entry: &str) -> Vec<String> {
+    #[cfg(feature = "hyphenation")]
+    {
+        use hyphenation::Load;
+        let language = hyphenation::Language::EnglishUS;
+        let dictionary = hyphenation::Standard::from_embedded(language).unwrap();
+        options.word_splitter = WordSplitter::Hyphenation(dictionary);
+    }
+    wrap_columns(entry, 1 as usize, 50, "\t\t\t", "", "\t")
 }
 
 fn main() {
