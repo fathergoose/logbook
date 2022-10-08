@@ -22,7 +22,7 @@ const UL: &str = "\x1b[4m";
 // TODO: Add support for printing "tags" field
 
 #[derive(Parser, Debug)]
-#[command(author("Alexander Ilseman"), version("0.1.2"), about("A moment happens once; what did you do with it?"), long_about = None)]
+#[command(author("Alexander Ilseman"), version("0.1.3"), about("A moment happens once; what did you do with it?"), long_about = None)]
 #[command(after_help = "Run without any arguments list last 10 entries.")]
 #[command(color = ColorChoice::Auto)]
 struct Cli {
@@ -31,6 +31,12 @@ struct Cli {
 
     #[clap(help = "Entry text. Omit to show last 10 entries")]
     entry: Vec<String>,
+
+    #[arg(short, long)]
+    number: Option<i32>,
+
+    #[arg(short, long)]
+    tags: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -54,17 +60,27 @@ fn parse_entry(entry: &str) -> Entry {
     }
 }
 
-fn list_last_entries(n: Option<i32>) {
-    let n = n.unwrap_or(10);
+fn heading_text(cli: &Cli) -> String {
+    if cli.tags {
+        format!(
+            "{}{}DateTime{}                 {}{}Text{}                     {}{}Tags{}",
+            BOLD, UL, RESET, BOLD, UL, RESET, BOLD, UL, RESET
+            )
+    } else {
+        format!(
+            "{}{}DateTime{}                 {}{}Text{}",
+            BOLD, UL, RESET, BOLD, UL, RESET
+            )
+    }
+
+}
+fn list_last_entries(cli: &Cli) {
+    let n = cli.number.unwrap_or(10);
     let file = File::open(FILENAME).unwrap();
     let rev_lines = RevLines::new(BufReader::new(&file)).unwrap();
     let last_lines = rev_lines.take(n as usize).collect::<Vec<_>>();
     // NOTE: For queies, we'll need a different approach to gathering the data
-    println!("{}Last {} entries:{}\n", BOLD, n, RESET);
-    println!(
-        "{}{}DateTime{}                 {}{}Text{}",
-        BOLD, UL, RESET, BOLD, UL, RESET
-    );
+    println!("{}", heading_text(cli));
     for line in last_lines.iter().rev() {
         let entry = serde_json::from_str::<Entry>(&line).unwrap();
         let mut first_line = true;
@@ -72,14 +88,19 @@ fn list_last_entries(n: Option<i32>) {
             if first_line {
                 println!("");
                 println!(
-                    "{}{}{}{}",
+                    "{}{}{}{}{}",
                     BOLD,
                     entry
                         .date
                         .with_timezone(&Local)
                         .format("%a %h-%d %_I:%M %p"),
                     RESET,
-                    "\t  ".to_owned() + &dedent(&line)
+                    "\t  ".to_owned() + &dedent(&line),
+                    if cli.tags {
+                        format!(" {}", entry.tags.join(" "))
+                    } else {
+                        "".to_owned()
+                    }
                 );
                 first_line = false;
             } else {
@@ -122,7 +143,7 @@ fn main() {
     info!("Parsed CLI Args");
     debug!("CLI: {:?}", cli);
     if cli.entry.is_empty() {
-        list_last_entries(None);
+        list_last_entries(&cli);
     } else {
         let entry = parse_entry(&cli.entry.join(" "));
         debug!("Entry: {:?}", entry);
