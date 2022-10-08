@@ -18,7 +18,7 @@ const UL: &str = "\x1b[4m";
 // TODO: Add support for a config file, env vars, and/or command-line args.
 
 #[derive(Parser, Debug)]
-#[command(author("Alexander Ilseman"), version("0.0.2"), about("A moment happens once; what did you do with it?"), long_about = None)]
+#[command(author("Alexander Ilseman"), version("0.1.1"), about("A moment happens once; what did you do with it?"), long_about = None)]
 #[command(after_help = "Run without any arguments list last 10 entries.")]
 #[command(color = ColorChoice::Auto)]
 struct Cli {
