@@ -1,8 +1,9 @@
-use std::io::Write;
+use std::{io::{Write, BufReader}, fs::File};
 
 use chrono::{DateTime, Local, TimeZone, Utc};
 use clap::{ColorChoice, Parser};
 use log::{debug, info};
+use rev_lines::RevLines;
 use serde::{Deserialize, Serialize};
 
 const FILENAME: &str = "/Users/al/.config/logbook/data.ndjson";
@@ -47,22 +48,24 @@ fn parse_entry(entry: &str) -> Entry {
 }
 
 fn list_last_entries(n: Option<i32>) {
-    let file = std::fs::File::open(FILENAME).unwrap();
-    let reader = std::io::BufReader::new(file);
-    let entries: Vec<Entry> = serde_json::Deserializer::from_reader(reader)
-        .into_iter()
-        .map(|e| e.unwrap())
-        .collect();
+    let n = n.unwrap_or(10);
+    let file = File::open(FILENAME).unwrap();
+    let rev_lines = RevLines::new(BufReader::new(&file)).unwrap();
+    let last_lines = rev_lines.take(n as usize).collect::<Vec<_>>();
+    // TODO: For queies, we'll need a different approach to gathering the data
+    println!("{}Last {} entries:{}\n", BOLD, n, RESET);
     println!(
         "{}{}DateTime{}                     {}{}Text{}",
         BOLD, UL, RESET, BOLD, UL, RESET
     );
-    for entry in entries.iter().take(n.unwrap_or(10) as usize) {
-        let local = Local.from_utc_datetime(&entry.date.naive_utc());
+    for line in last_lines.iter().rev() {
+        let entry = serde_json::from_str::<Entry>(&line).unwrap();
         println!(
-            "{} ---- {}",
-            local.format("%a %Y-%m-%d %I:%M %p"),
-            entry.text
+            "{}{}{} {}",
+            BOLD,
+            entry.date.with_timezone(&Local).format("%Y-%m-%d %H:%M:%S"),
+            RESET,
+            entry.text,
         );
     }
 }
