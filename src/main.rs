@@ -18,12 +18,17 @@ const UL: &str = "\x1b[4m";
 // TODO: Write tests - unit and integration.
 // TODO: Add support for a config file, env vars, and/or command-line args.
 // TODO: Add support for something like psql's `\e` command open in EDITOR
+// TODO: Adjust print width based on terminal width
+// TODO: Add support for printing "tags" field
 
 #[derive(Parser, Debug)]
-#[command(author("Alexander Ilseman"), version("0.1.1"), about("A moment happens once; what did you do with it?"), long_about = None)]
+#[command(author("Alexander Ilseman"), version("0.1.2"), about("A moment happens once; what did you do with it?"), long_about = None)]
 #[command(after_help = "Run without any arguments list last 10 entries.")]
 #[command(color = ColorChoice::Auto)]
 struct Cli {
+    #[arg(short, long)]
+    all: bool,
+
     #[clap(help = "Entry text. Omit to show last 10 entries")]
     entry: Vec<String>,
 }
@@ -54,7 +59,7 @@ fn list_last_entries(n: Option<i32>) {
     let file = File::open(FILENAME).unwrap();
     let rev_lines = RevLines::new(BufReader::new(&file)).unwrap();
     let last_lines = rev_lines.take(n as usize).collect::<Vec<_>>();
-    // TODO: For queies, we'll need a different approach to gathering the data
+    // NOTE: For queies, we'll need a different approach to gathering the data
     println!("{}Last {} entries:{}\n", BOLD, n, RESET);
     println!(
         "{}{}DateTime{}                 {}{}Text{}",
@@ -69,7 +74,10 @@ fn list_last_entries(n: Option<i32>) {
                 println!(
                     "{}{}{}{}",
                     BOLD,
-                    entry.date.with_timezone(&Local).format("%a %h-%d %_I:%M %p"),
+                    entry
+                        .date
+                        .with_timezone(&Local)
+                        .format("%a %h-%d %_I:%M %p"),
                     RESET,
                     "\t  ".to_owned() + &dedent(&line)
                 );
